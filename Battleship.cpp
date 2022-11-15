@@ -1,10 +1,11 @@
 // Battleship.cpp : This file contains the 'main' function. Program execution begins and ends there.
 //
 
-#include <iostream>
-#include <math.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 #include <conio.h>
+#include <time.h>
 
 const int gridx = 10;
 const int gridy = 10;
@@ -15,25 +16,6 @@ const int offsetX[] = { 0, 1, 0, -1 };
 const int offsetY[] = { -1, 0, 1, 0 };
 
 static const int NO_BOAT = -1;
-
-typedef struct _Grid
-{
-	int x;
-	int y;
-	// a guess at an xy location that has no boat there, will have boatIndex = NO_BOAT and guessed = true
-	int boatIndex; // 0-based boat index
-	bool guessed;
-	_Grid* pNext;
-	static _Grid* Create( int _x, int _y, int _boatIndex)
-	{
-		struct _Grid* pGrid = (Grid*)malloc(sizeof(_Grid));
-		pGrid->x = _x;
-		pGrid->y = _y;
-		pGrid->boatIndex = _boatIndex;
-		pGrid->pNext = NULL;
-		return pGrid;
-	}
-} Grid;
 
 typedef struct _Boat
 {
@@ -62,13 +44,71 @@ typedef struct _Boat
 	}
 } Boat;
 
-Boat pMyBoats[5];
-Boat pComputerBoats[5];
+
+#if false
+typedef struct _Grid
+{
+	int x;
+	int y;
+	// a guess at an xy location that has no boat there, will have boatIndex = NO_BOAT and guessed = true
+	int boatIndex; // 0-based boat index
+	bool guessed;
+	_Grid* pNext;
+	static _Grid* CreateNew( int _x, int _y, int _boatIndex)
+	{
+		struct _Grid* pGrid = (Grid*)malloc(sizeof(_Grid));
+		pGrid->x = _x;
+		pGrid->y = _y;
+		pGrid->boatIndex = _boatIndex;
+		pGrid->pNext = NULL;
+		return pGrid;
+	}
+} Grid;
+
+Grid* CreateGrid()
+{
+	return NULL;
+}
+
+void DestroyGrid(Grid* pGrid)
+{
+	while (pGrid)
+	{
+		Grid* pNext = pGrid->pNext;
+		free(pGrid);
+		pGrid = pNext;
+	}
+}
+
+void GridData(Grid* pGrid, int x, int y, int* pBoatIndex, bool* pGuessed)
+{
+	*pBoatIndex = NO_BOAT;
+	*pGuessed = false;
+
+	if (pGrid == NULL) return;
+	if (x < 0 || x >= gridx || y < 0 || y >= gridy)
+	{
+		*pGuessed = true;
+		return;
+	}
+
+	while (pGrid)
+	{
+		if (pGrid->x == x && pGrid->y == y)
+		{
+			*pBoatIndex = pGrid->boatIndex;
+			*pGuessed = pGrid->guessed;
+			return;
+		}
+		pGrid = pGrid->pNext;
+	}
+	return;
+}
 
 int GridBoat(Grid* pGrid, int x, int y)
 {
 	if (pGrid == NULL) return NO_BOAT;
-	if (x < 0 || x >= gridx || y < 0 || y >= gridy) return 0;
+	if (x < 0 || x >= gridx || y < 0 || y >= gridy) return NO_BOAT;
 	while (pGrid)
 	{
 		if (pGrid->x == x && pGrid->y == y)
@@ -109,11 +149,259 @@ void SetOrAddGrid(Grid** ppGrid, int x, int y, int boat, bool guessed)
 		pGrid = pGrid->pNext;
 	}
 
-	Grid* pNewGrid = _Grid::Create(x, y, boat);
+	Grid* pNewGrid = _Grid::CreateNew(x, y, boat);
 	pNewGrid->guessed = guessed;
 	pNewGrid->pNext = *ppGrid;
 	*ppGrid = pNewGrid;
 }
+
+void FindAnyNonSunkHitInGrid(Grid* pGrid, Boat* pBoats, int* pX, int* pY, int Direc[])
+{
+	*pX = -1;
+	*pY = -1;
+	Grid* p = pGrid;
+
+	for (int i = 0; i < 4; i++)
+	{
+		Direc[i] = 0;
+	}
+
+	while (p)
+	{
+		if (p->guessed && (p->boatIndex > NO_BOAT) && !pBoats[p->boatIndex].sunk)
+		{
+			int sx = p->x;
+			int sy = p->y;
+
+			for (int i = 0; i < 4; i++)
+			{
+				Direc[i] = 0;
+			}
+
+			bool bFound = false;
+
+			for (int i = 0; i < 4; i++)
+			{
+				// go in this direction unless:
+				// hit non-guessed
+				// hit border
+				// hit guessed but not ship
+
+				Direc[i] = 0;
+				int j = 1;
+				for (; ; j++)
+				{
+					int x = sx + offsetX[i] * j;
+					int y = sy + offsetY[i] * j;
+					if (x < 0 || y < 0 || x >= gridx || y >= gridy)
+					{
+						// don't go this direction
+						j = 0;
+						break;
+					}
+
+					int boatIndex;
+					bool guessed;
+					GridData(pGrid, x, y, &boatIndex, &guessed);
+
+					if (!guessed)
+					{
+						// if j == 1, then we are at a non-guess spot. 
+						// if j > 1 then we stepped over some 
+						// guessed-and-hit spots and got here. 
+						// still need guess this last spot
+						break;
+					}
+
+					// we already guessed this spot before.
+					// if it's boat, keep going
+
+					if (boatIndex == NO_BOAT)
+					{
+						j = 0;
+						break;
+					}
+				} // for j
+
+				if (j)
+				{
+					Direc[i] = j;
+					bFound = true;
+				}
+			}
+
+			if (bFound)
+			{
+				*pX = p->x;
+				*pY = p->y;
+				return;
+			}
+		} // if guessed and a boat, and isn't sunk yet
+		p = p->pNext;
+	}
+}
+#endif
+
+#if true
+typedef struct _GridPoint
+{
+	// a guess at an xy location that has no boat there, will have boatIndex = NO_BOAT and guessed = true
+	int boatIndex; // 0-based boat index
+	bool guessed;
+} GridPoint;
+
+typedef struct _Grid
+{
+	GridPoint* m_pArray;
+} Grid;
+
+Grid* CreateGrid()
+{
+	Grid* pGrid = (Grid*)malloc(gridx * gridy * sizeof(Grid));
+	memset(pGrid, 0, gridx * gridy * sizeof(Grid));
+	return pGrid;
+}
+
+void DestroyGrid(Grid* pGrid)
+{
+	free(pGrid);
+}
+
+Grid* GridAtXY(Grid * pGrid, int x, int y)
+{
+	return pGrid + y * gridx + x;
+}
+
+void GridData(Grid* pGrid, int x, int y, int* pBoatIndex, bool* pGuessed)
+{
+	*pBoatIndex = NO_BOAT;
+	*pGuessed = false;
+
+	if (pGrid == NULL) return;
+	if (x < 0 || x >= gridx || y < 0 || y >= gridy)
+	{
+		*pGuessed = true;
+		return;
+	}
+
+	Grid* pXY = GridAtXY(pGrid, x, y);
+	*pBoatIndex = pXY->boatIndex;
+	*pGuessed = pXY->guessed;
+}
+
+int GridBoat(Grid* pGrid, int x, int y)
+{
+	if (pGrid == NULL) return NO_BOAT;
+	if (x < 0 || x >= gridx || y < 0 || y >= gridy) return NO_BOAT;
+	Grid* pXY = GridAtXY(pGrid, x, y);
+	return pXY->boatIndex;
+}
+
+bool GridGuessed(Grid* pGrid, int x, int y)
+{
+
+	if (pGrid == NULL) return false;
+	if (x < 0 || x >= gridx || y < 0 || y >= gridy) return true;
+	Grid* pXY = GridAtXY(pGrid, x, y);
+	return pXY->guessed;
+}
+
+void SetOrAddGrid(Grid** ppGrid, int x, int y, int boat, bool guessed)
+{
+	Grid* pGrid = GridAtXY(*ppGrid, x, y);
+	pGrid->boatIndex = boat;
+	pGrid->guessed = guessed;
+}
+
+void FindAnyNonSunkHitInGrid(Grid* pGrid, Boat* pBoats, int* pX, int* pY, int Direc[])
+{
+	*pX = -1;
+	*pY = -1;
+
+	for (int i = 0; i < 4; i++)
+	{
+		Direc[i] = 0;
+	}
+
+	for (int sx = 0; sx < gridx; sx++)
+	{
+		for (int sy = 0; sy < gridy; sy++)
+		{
+			Grid* pXY = GridAtXY(pGrid, sx, sy);
+			if (pXY->guessed && (pXY->boatIndex > NO_BOAT) && !pBoats[pXY->boatIndex].sunk)
+			{
+				for (int i = 0; i < 4; i++)
+				{
+					Direc[i] = 0;
+				}
+
+				bool bFound = false;
+
+				for (int i = 0; i < 4; i++)
+				{
+					// go in this direction unless:
+					// hit non-guessed
+					// hit border
+					// hit guessed but not ship
+
+					Direc[i] = 0;
+					int j = 1;
+					for (; ; j++)
+					{
+						int x = sx + offsetX[i] * j;
+						int y = sy + offsetY[i] * j;
+						if (x < 0 || y < 0 || x >= gridx || y >= gridy)
+						{
+							// don't go this direction
+							j = 0;
+							break;
+						}
+
+						int boatIndex;
+						bool guessed;
+						GridData(pGrid, x, y, &boatIndex, &guessed);
+
+						if (!guessed)
+						{
+							// if j == 1, then we are at a non-guess spot. 
+							// if j > 1 then we stepped over some 
+							// guessed-and-hit spots and got here. 
+							// still need guess this last spot
+							break;
+						}
+
+						// we already guessed this spot before.
+						// if it's boat, keep going
+
+						if (boatIndex == NO_BOAT)
+						{
+							j = 0;
+							break;
+						}
+					} // for j
+
+					if (j)
+					{
+						Direc[i] = j;
+						bFound = true;
+					}
+				}
+
+				if (bFound)
+				{
+					*pX = sx;
+					*pY = sy;
+					return;
+				}
+			} // if guessed and a boat, and isn't sunk yet
+		}
+	}
+}
+#endif
+
+
+Boat pMyBoats[5];
+Boat pComputerBoats[5];
 
 bool AnyUntriedPathsAroundUs(Grid* pGrid, int x, int y)
 {
@@ -251,87 +539,6 @@ void PlaceBoatInGrid(Grid** ppGrid, Boat* b)
 	}
 }
 
-void FindAnyNonSunkHitInGrid(Grid* pGrid, Boat* pBoats, int* pX, int* pY, int Direc[] )
-{
-	*pX = -1;
-	*pY = -1;
-	Grid* p = pGrid;
-
-	for (int i = 0; i < 4; i++)
-	{
-		Direc[i] = 0;
-	}
-
-	while (p)
-	{
-		if (p->guessed && ( p->boatIndex > NO_BOAT ) && !pBoats[p->boatIndex].sunk )
-		{
-			int sx = p->x;
-			int sy = p->y;
-
-			for (int i = 0; i < 4; i++)
-			{
-				Direc[i] = 0;
-			}
-
-			bool bFound = false;
-
-			for (int i = 0; i < 4; i++)
-			{
-				// go in this direction unless:
-				// hit non-guessed
-				// hit border
-				// hit guessed but not ship
-
-				Direc[i] = 0;
-				int j = 1;
-				for (; ; j++)
-				{
-					int x = sx + offsetX[i] * j;
-					int y = sy + offsetY[i] * j;
-					if (x < 0 || y < 0 || x >= gridx || y >= gridy)
-					{
-						// don't go this direction
-						j = 0;
-						break;
-					}
-
-					if (!GridGuessed(pGrid, x, y))
-					{
-						// if j == 1, then we are at a non-guess spot. 
-						// if j > 1 then we stepped over some 
-						// guessed-and-hit spots and got here. 
-						// still need guess this last spot
-						break;
-					}
-
-					// we already guessed this spot before.
-					// if it's boat, keep going
-
-					if (GridBoat(pGrid, x, y) == NO_BOAT)
-					{
-						j = 0;
-						break;
-					}
-				} // for j
-
-				if (j)
-				{
-					Direc[i] = j;
-					bFound = true;
-				}
-			}
-
-			if (bFound)
-			{
-				*pX = p->x;
-				*pY = p->y;
-				return;
-			}
-		} // if guessed and a boat, and isn't sunk yet
-		p = p->pNext;
-	}
-}
 
 void PrintGrid(Grid* pMyGrid, Grid * pOpponentGrid)
 {
@@ -383,8 +590,9 @@ void PrintGrid(Grid* pMyGrid, Grid * pOpponentGrid)
 		{
 			const char* szDef = ". ";
 
-			int boat = GridBoat(pMyGrid, x, y);
-			bool bGuessed = GridGuessed(pMyGrid, x, y);
+			int boat;
+			bool bGuessed;
+			GridData(pMyGrid, x, y, &boat, &bGuessed);
 			bool bSunk = IsEntireBoatSunk(pMyGrid, pMyBoats, x, y) != NO_BOAT;
 
 			switch (boat)
@@ -484,8 +692,9 @@ void PrintGrid(Grid* pMyGrid, Grid * pOpponentGrid)
 			const char* szDef = ". ";
 			const char* szHit = "! ";
 
-			int boat = GridBoat(pOpponentGrid, x, y);
-			bool bGuessed = GridGuessed(pOpponentGrid, x, y);
+			int boat;
+			bool bGuessed;
+			GridData(pOpponentGrid, x, y, &boat, &bGuessed);
 			bool bSunk = IsEntireBoatSunk(pOpponentGrid, pComputerBoats, x, y) != NO_BOAT;
 
 			// if we don't want to reveal the computer's boats, then if we havent' guessed
@@ -618,11 +827,12 @@ void PrintGrid(Grid* pMyGrid, Grid * pOpponentGrid)
 
 int main()
 {
-	srand(time(NULL));
+	srand((unsigned int)time(NULL));
 
-	Grid* pMyGrid = NULL;
-	Grid* pCompGrid = NULL;
+	Grid* pMyGrid = CreateGrid();
+	Grid* pCompGrid = CreateGrid();
 	int boatIndex;
+	bool guessed;
 	int guessX;
 	int guessY;
 
@@ -749,12 +959,14 @@ int main()
 			printf("Invalid move.\n");
 			continue;
 		}
-		if (GridGuessed(pCompGrid, x, y))
+
+		bool guessed;
+		GridData(pCompGrid, x, y, &boatIndex, &guessed);
+		if (guessed)
 		{
 			printf("You've already guessed that spot.\n");
 			continue;
 		}
-		boatIndex = GridBoat(pCompGrid, x, y);
 		if (boatIndex == NO_BOAT)
 		{
 			printf("Miss!\n");
@@ -847,16 +1059,15 @@ int main()
 			if (searchLen == 0)
 			{
 				printf("Computer couldn't find a single spot to move. we programmed this wrong.\n");
-				exit(0);
+				goto exitgame;
 			}
 		}
 
 		printf("Computer guesses: %c, %c   (search len = %d)\n", 'A' + guessX, 'A' + guessY, searchLen);
 
-		boatIndex = GridBoat(pMyGrid, guessX, guessY);
+		GridData(pMyGrid, guessX, guessY, &boatIndex, &guessed);
 
-		bool bAlreadyGuessed = GridGuessed(pMyGrid, guessX, guessY);
-		if (bAlreadyGuessed)
+		if (guessed)
 		{
 			printf("why did the computer guess the same spot twice?\n");
 			exit(0);
@@ -906,6 +1117,9 @@ int main()
 	} // while
 
 	// end of game
+exitgame:
+	DestroyGrid(pMyGrid);
+	DestroyGrid(pCompGrid);
 }
 
 
