@@ -1,16 +1,16 @@
 #include "Functions_TheRest.h"
 
-bool AnyUntriedPathsAroundUs(Grid* pGrid, int x, int y)
+bool AnyUntriedPathsAroundUs(struct Grid* pGrid, int x, int y)
 {
 	bool b = false;
 	for (int i = 0; i < 4; i++)
 	{
-		b |= !GridGuessed(pGrid, x + offsetX[i], y + offsetY[i]);
+		b |= !IsGridGuessedAtXY(pGrid, x + StepOffsetX[i], y + StepOffsetY[i]);
 	}
 	return b;
 }
 
-bool HasAnyInProximityBeenGuessed(Grid* pGrid, int x, int y, int len)
+bool HasAnyInProximityBeenGuessed(struct Grid* pGrid, int x, int y, int len)
 {
 	x -= len / 2;
 	y -= len / 2;
@@ -20,11 +20,11 @@ bool HasAnyInProximityBeenGuessed(Grid* pGrid, int x, int y, int len)
 		{
 			int sx = x + i;
 			int sy = y + j;
-			if (sx < 0 || sy < 0 || sx >= gridx || sy >= gridy)
+			if (sx < 0 || sy < 0 || sx >= GridWidth || sy >= GridHeight)
 			{
 				continue;
 			}
-			bool bGuessed = GridGuessed(pGrid, sx, sy);
+			bool bGuessed = IsGridGuessedAtXY(pGrid, sx, sy);
 			if (bGuessed)
 			{
 				return true;
@@ -34,12 +34,12 @@ bool HasAnyInProximityBeenGuessed(Grid* pGrid, int x, int y, int len)
 	return false;
 }
 
-void FindUnguessedRegion(Grid* pGrid, int* px, int* py, int len)
+void FindUnguessedRegion(struct Grid* pGrid, int* px, int* py, int len)
 {
 	for (int i = 0; i < 10000; i++)
 	{
-		int rx = rand() % gridx;
-		int ry = rand() % gridy;
+		int rx = rand() % GridWidth;
+		int ry = rand() % GridHeight;
 		bool bIsPop = HasAnyInProximityBeenGuessed(pGrid, rx, ry, len);
 		if (bIsPop)
 		{
@@ -53,7 +53,7 @@ void FindUnguessedRegion(Grid* pGrid, int* px, int* py, int len)
 	*py = -1;
 }
 
-bool IsSpaceForBoat(Grid* pGrid, Boat* b)
+bool IsSpaceForBoat(struct Grid* pGrid, struct BoatInfo* b)
 {
 	int sx = b->x;
 	int sy = b->y;
@@ -71,11 +71,11 @@ bool IsSpaceForBoat(Grid* pGrid, Boat* b)
 			x = sx;
 			y = sy + i;
 		}
-		if (x >= gridx || y >= gridy)
+		if (x >= GridWidth || y >= GridHeight)
 		{
 			return false;
 		}
-		if (GridBoat(pGrid, x, y) > NO_BOAT)
+		if (GetGridBoatAtXY(pGrid, x, y) > NO_BOAT)
 		{
 			return false;
 		}
@@ -83,9 +83,9 @@ bool IsSpaceForBoat(Grid* pGrid, Boat* b)
 	return true;
 }
 
-int IsEntireBoatSunk(Grid* pGrid, Boat* pBoats, int x, int y)
+int IsEntireBoatSunk(struct Grid* pGrid, struct BoatInfo* pBoats, int x, int y)
 {
-	int boat = GridBoat(pGrid, x, y);
+	int boat = GetGridBoatAtXY(pGrid, x, y);
 	if (boat == NO_BOAT) return NO_BOAT;
 
 	int bx = pBoats[boat].x;
@@ -101,7 +101,7 @@ int IsEntireBoatSunk(Grid* pGrid, Boat* pBoats, int x, int y)
 	bool bSunk = true;
 	for (int l = 0; l < len; l++)
 	{
-		bool bGuessed = GridGuessed(pGrid, bx, by);
+		bool bGuessed = IsGridGuessedAtXY(pGrid, bx, by);
 		if (!bGuessed)
 		{
 			bSunk = false;
@@ -114,7 +114,7 @@ int IsEntireBoatSunk(Grid* pGrid, Boat* pBoats, int x, int y)
 	return boat;
 }
 
-void PlaceBoatInGrid(Grid** ppGrid, Boat* b)
+void PlaceBoatInGrid(struct Grid* pGrid, struct BoatInfo* b)
 {
 	int sx = b->x;
 	int sy = b->y;
@@ -132,17 +132,17 @@ void PlaceBoatInGrid(Grid** ppGrid, Boat* b)
 			x = sx;
 			y = sy + i;
 		}
-		SetOrAddGrid(ppGrid, x, y, b->index, false);
+		SetGridDataAtXY(pGrid, x, y, b->index, false);
 	}
 }
 
 
-void PrintGrid(Grid* pMyGrid, Grid* pOpponentGrid)
+void PrintGrid(struct Grid* pMyGrid, struct Grid* pOpponentGrid)
 {
 	const char* szSpacesBetweenBoards = "        ";
 
 	printf("    ");
-	for (int x = 0; x < gridx; x++)
+	for (int x = 0; x < GridWidth; x++)
 	{
 		printf("%c ", 'A' + x);
 	}
@@ -151,7 +151,7 @@ void PrintGrid(Grid* pMyGrid, Grid* pOpponentGrid)
 	printf(szSpacesBetweenBoards);
 
 	printf("    ");
-	for (int x = 0; x < gridx; x++)
+	for (int x = 0; x < GridWidth; x++)
 	{
 		printf("%c ", 'A' + x);
 	}
@@ -160,7 +160,7 @@ void PrintGrid(Grid* pMyGrid, Grid* pOpponentGrid)
 	printf("\n");
 
 	printf("   +");
-	for (int x = 0; x < gridx; x++)
+	for (int x = 0; x < GridWidth; x++)
 	{
 		printf("==");
 	}
@@ -169,7 +169,7 @@ void PrintGrid(Grid* pMyGrid, Grid* pOpponentGrid)
 	printf(szSpacesBetweenBoards);
 
 	printf("   +");
-	for (int x = 0; x < gridx; x++)
+	for (int x = 0; x < GridWidth; x++)
 	{
 		printf("==");
 	}
@@ -177,20 +177,20 @@ void PrintGrid(Grid* pMyGrid, Grid* pOpponentGrid)
 
 	printf("\n");
 
-	for (int y = 0; y < gridy; y++)
+	for (int y = 0; y < GridHeight; y++)
 	{
 		printf("%c ||", 'A' + y);
 
 		bool bOpponentGrid = false;
 
-		for (int x = 0; x < gridx; x++)
+		for (int x = 0; x < GridWidth; x++)
 		{
 			const char* szDef = ". ";
 
 			int boat;
 			bool bGuessed;
-			GridData(pMyGrid, x, y, &boat, &bGuessed);
-			bool bSunk = IsEntireBoatSunk(pMyGrid, pMyBoats, x, y) != NO_BOAT;
+			GetGridDataAtXY(pMyGrid, x, y, &boat, &bGuessed);
+			bool bSunk = IsEntireBoatSunk(pMyGrid, MyBoats, x, y) != NO_BOAT;
 
 			switch (boat)
 			{
@@ -284,15 +284,15 @@ void PrintGrid(Grid* pMyGrid, Grid* pOpponentGrid)
 
 		printf("%c ||", 'A' + y);
 
-		for (int x = 0; x < gridx; x++)
+		for (int x = 0; x < GridWidth; x++)
 		{
 			const char* szDef = ". ";
 			const char* szHit = "! ";
 
 			int boat;
 			bool bGuessed;
-			GridData(pOpponentGrid, x, y, &boat, &bGuessed);
-			bool bSunk = IsEntireBoatSunk(pOpponentGrid, pComputerBoats, x, y) != NO_BOAT;
+			GetGridDataAtXY(pOpponentGrid, x, y, &boat, &bGuessed);
+			bool bSunk = IsEntireBoatSunk(pOpponentGrid, ComputersBoats, x, y) != NO_BOAT;
 
 			// if we don't want to reveal the computer's boats, then if we havent' guessed
 			// the spot yet, then don't show what boat type it is, pretend it's "no boat".
@@ -397,7 +397,7 @@ void PrintGrid(Grid* pMyGrid, Grid* pOpponentGrid)
 	}
 
 	printf("   +");
-	for (int x = 0; x < gridx; x++)
+	for (int x = 0; x < GridWidth; x++)
 	{
 		printf("==");
 	}
@@ -406,7 +406,7 @@ void PrintGrid(Grid* pMyGrid, Grid* pOpponentGrid)
 	printf(szSpacesBetweenBoards);
 
 	printf("   +");
-	for (int x = 0; x < gridx; x++)
+	for (int x = 0; x < GridWidth; x++)
 	{
 		printf("==");
 	}
@@ -415,7 +415,7 @@ void PrintGrid(Grid* pMyGrid, Grid* pOpponentGrid)
 	printf("\n");
 
 	printf("    ");
-	for (int x = 0; x < gridx / 2 - 5; x++)
+	for (int x = 0; x < GridWidth / 2 - 5; x++)
 	{
 		printf("  ");
 	}

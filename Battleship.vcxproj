@@ -129,12 +129,10 @@
   <ItemGroup>
     <ClCompile Include="Battleship.c" />
     <ClCompile Include="Functions_Array.c" />
-    <ClCompile Include="Functions_LinkedList.c" />
     <ClCompile Include="Functions_TheRest.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Functions_Array.h" />
-    <ClInclude Include="Functions_LinkedList.h" />
     <ClInclude Include="Functions_TheRest.h" />
     <ClInclude Include="Game_Defaults.h" />
   </ItemGroup>

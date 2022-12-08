@@ -1,11 +1,12 @@
 #include "Functions_Array.h"
 
-#ifdef USE_ARRAY
-Grid* CreateGrid()
+struct Grid* CreateGrid()
 {
-	Grid* pGrid = (Grid*)malloc(sizeof(Grid));
-	pGrid->m_pArray = (GridPoint*)malloc(gridx * gridy * sizeof(Grid));
-	for (int i = 0; i < gridx * gridy; i++)
+	struct Grid* pGrid = (struct Grid*) malloc(sizeof(struct Grid));
+	if (pGrid == NULL) return NULL;
+	int sizeOfGridData = sizeof(struct GridData);
+	pGrid->m_pArray = (struct GridData*) malloc(GridWidth * GridHeight * sizeOfGridData);
+	for (int i = 0; i < GridWidth * GridHeight; i++)
 	{
 		pGrid->m_pArray[i].boatIndex = NO_BOAT;
 		pGrid->m_pArray[i].guessed = false;
@@ -13,59 +14,60 @@ Grid* CreateGrid()
 	return pGrid;
 }
 
-void DestroyGrid(Grid* pGrid)
+void DestroyGrid(struct Grid* pGrid)
 {
 	free(pGrid->m_pArray);
 	free(pGrid);
 }
 
-GridPoint* GridAtXY(Grid * pGrid, int x, int y)
+struct GridData* GridDataAtXY(struct Grid * pGrid, int x, int y)
 {
-	return pGrid->m_pArray + y * gridx + x;
+	// we return the address of the griddata, not the struct itself.
+	return &pGrid[y * GridWidth + x];
 }
 
-void GridData(Grid* pGrid, int x, int y, int* pBoatIndex, bool* pGuessed)
+void GetGridDataAtXY(struct Grid* pGrid, int x, int y, int* pBoatIndex, bool* pGuessed)
 {
 	*pBoatIndex = NO_BOAT;
 	*pGuessed = false;
 
 	if (pGrid == NULL) return;
-	if (x < 0 || x >= gridx || y < 0 || y >= gridy)
+	if (x < 0 || x >= GridWidth || y < 0 || y >= GridHeight)
 	{
 		*pGuessed = true;
 		return;
 	}
 
-	GridPoint* pXY = GridAtXY(pGrid, x, y);
+	struct GridData* pXY = GridDataAtXY(pGrid, x, y);
 	*pBoatIndex = pXY->boatIndex;
 	*pGuessed = pXY->guessed;
 }
 
-int GridBoat(Grid* pGrid, int x, int y)
+int GetGridBoatAtXY(struct Grid* pGrid, int x, int y)
 {
 	if (pGrid == NULL) return NO_BOAT;
-	if (x < 0 || x >= gridx || y < 0 || y >= gridy) return NO_BOAT;
-	GridPoint* pXY = GridAtXY(pGrid, x, y);
+	if (x < 0 || x >= GridWidth || y < 0 || y >= GridHeight) return NO_BOAT;
+	struct GridData* pXY = GridDataAtXY(pGrid, x, y);
 	return pXY->boatIndex;
 }
 
-bool GridGuessed(Grid* pGrid, int x, int y)
+bool IsGridGuessedAtXY(struct Grid* pGrid, int x, int y)
 {
 
 	if (pGrid == NULL) return false;
-	if (x < 0 || x >= gridx || y < 0 || y >= gridy) return true;
-	GridPoint* pXY = GridAtXY(pGrid, x, y);
+	if (x < 0 || x >= GridWidth || y < 0 || y >= GridHeight) return true;
+	struct GridData* pXY = GridDataAtXY(pGrid, x, y);
 	return pXY->guessed;
 }
 
-void SetOrAddGrid(Grid** ppGrid, int x, int y, int boat, bool guessed)
+void SetGridDataAtXY(struct Grid* pGrid, int x, int y, int boat, bool guessed)
 {
-	GridPoint* pGrid = GridAtXY(*ppGrid, x, y);
-	pGrid->boatIndex = boat;
-	pGrid->guessed = guessed;
+	struct GridData* pGridData = GridDataAtXY(pGrid, x, y);
+	pGridData->boatIndex = boat;
+	pGridData->guessed = guessed;
 }
 
-void FindAnyNonSunkHitInGrid(Grid* pGrid, Boat* pBoats, int* pX, int* pY, int Direc[])
+void FindAnyNonSunkHitInGrid(struct Grid* pGrid, struct BoatInfo* pBoats, int* pX, int* pY, int Direc[])
 {
 	*pX = -1;
 	*pY = -1;
@@ -75,12 +77,12 @@ void FindAnyNonSunkHitInGrid(Grid* pGrid, Boat* pBoats, int* pX, int* pY, int Di
 		Direc[i] = 0;
 	}
 
-	for (int sx = 0; sx < gridx; sx++)
+	for (int sx = 0; sx < GridWidth; sx++)
 	{
-		for (int sy = 0; sy < gridy; sy++)
+		for (int sy = 0; sy < GridHeight; sy++)
 		{
-			GridPoint* pXY = GridAtXY(pGrid, sx, sy);
-			if (pXY->guessed && (pXY->boatIndex > NO_BOAT) && !pBoats[pXY->boatIndex].sunk)
+			struct GridData* pXY = GridDataAtXY(pGrid, sx, sy);
+			if (pXY->guessed && (pXY->boatIndex > NO_BOAT) && !MyBoats[pXY->boatIndex].sunk)
 			{
 				for (int i = 0; i < 4; i++)
 				{
@@ -100,9 +102,9 @@ void FindAnyNonSunkHitInGrid(Grid* pGrid, Boat* pBoats, int* pX, int* pY, int Di
 					int j = 1;
 					for (; ; j++)
 					{
-						int x = sx + offsetX[i] * j;
-						int y = sy + offsetY[i] * j;
-						if (x < 0 || y < 0 || x >= gridx || y >= gridy)
+						int x = sx + StepOffsetX[i] * j;
+						int y = sy + StepOffsetY[i] * j;
+						if (x < 0 || y < 0 || x >= GridWidth || y >= GridHeight)
 						{
 							// don't go this direction
 							j = 0;
@@ -111,7 +113,7 @@ void FindAnyNonSunkHitInGrid(Grid* pGrid, Boat* pBoats, int* pX, int* pY, int Di
 
 						int boatIndex;
 						bool guessed;
-						GridData(pGrid, x, y, &boatIndex, &guessed);
+						GetGridDataAtXY(pGrid, x, y, &boatIndex, &guessed);
 
 						if (!guessed)
 						{
@@ -149,4 +151,3 @@ void FindAnyNonSunkHitInGrid(Grid* pGrid, Boat* pBoats, int* pX, int* pY, int Di
 		}
 	}
 }
-#endif

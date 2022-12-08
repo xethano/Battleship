@@ -24,9 +24,6 @@
     <ClCompile Include="Functions_TheRest.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Functions_LinkedList.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Functions_Array.h">
@@ -36,9 +33,6 @@
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="Functions_TheRest.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Functions_LinkedList.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -11,14 +11,14 @@ int main()
 {
 	srand((unsigned int)time(NULL));
 
-	Grid* pMyGrid = CreateGrid();
-	Grid* pCompGrid = CreateGrid();
+	struct Grid* pMyGrid = CreateGrid();
+	struct Grid* pCompGrid = CreateGrid();
 	int boatIndex;
 	int guessX;
 	int guessY;
 
 	// computer's variables
-	int searchLen = 5;
+	int searchLen = 5; // area to search in. Radius.
 
 	// computer finding a run along a ship's length
 	int KnownHitX = -1;
@@ -35,35 +35,37 @@ int main()
 	//
 	//==================================================
 
-	for (int i = 0; i < boats; i++)
+	for (int i = 0; i < BoatCount; i++)
 	{
-		int len = boatLengths[i];
+		int len = BoatLengthArray[i];
 
 	repeat:
-		Boat bt;
-		bt.index = i;
-		bt.sunk = false;
-		bt.len = len;
-		bt.isHorz = rand() % 2 ? true : false;
-		int x, y;
-		if (bt.isHorz)
 		{
-			x = rand() % (gridx - (len-1));
-			y = rand() % gridy;
+			struct BoatInfo bt;
+			bt.index = i;
+			bt.sunk = false;
+			bt.len = len;
+			bt.isHorz = rand() % 2 ? true : false;
+			int x, y;
+			if (bt.isHorz)
+			{
+				x = rand() % (GridWidth - (len - 1));
+				y = rand() % GridHeight;
+			}
+			else
+			{
+				x = rand() % GridWidth;
+				y = rand() % (GridHeight - (len - 1));
+			}
+			bt.x = x;
+			bt.y = y;
+			if (!IsSpaceForBoat(pMyGrid, &bt))
+			{
+				goto repeat;
+			}
+			PlaceBoatInGrid(&pMyGrid, &bt);
+			MyBoats[i] = bt;
 		}
-		else
-		{
-			x = rand() % gridx;
-			y = rand() % (gridy - (len-1));
-		}
-		bt.x = x;
-		bt.y = y;
-		if (!IsSpaceForBoat(pMyGrid, &bt))
-		{
-			goto repeat;
-		}
-		PlaceBoatInGrid(&pMyGrid, &bt);
-		pMyBoats[i] = bt;
 	}
 
 	//==================================================
@@ -72,35 +74,37 @@ int main()
 	//
 	//==================================================
 
-	for (int i = 0; i < boats; i++)
+	for (int i = 0; i < BoatCount; i++)
 	{
-		int len = boatLengths[i];
+		int len = BoatLengthArray[i];
 
 	repeat2:
-		Boat bt;
-		bt.index = i;
-		bt.sunk = false;
-		bt.len = len;
-		bt.isHorz = rand() % 2 ? true : false;
-		int x, y;
-		if (bt.isHorz)
 		{
-			x = rand() % (gridx - (len - 1));
-			y = rand() % gridy;
+			struct BoatInfo bt;
+			bt.index = i;
+			bt.sunk = false;
+			bt.len = len;
+			bt.isHorz = rand() % 2 ? true : false;
+			int x, y;
+			if (bt.isHorz)
+			{
+				x = rand() % (GridWidth - (len - 1));
+				y = rand() % GridHeight;
+			}
+			else
+			{
+				x = rand() % GridWidth;
+				y = rand() % (GridHeight - (len - 1));
+			}
+			bt.x = x;
+			bt.y = y;
+			if (!IsSpaceForBoat(pCompGrid, &bt))
+			{
+				goto repeat2;
+			}
+			PlaceBoatInGrid(&pCompGrid, &bt);
+			ComputersBoats[i] = bt;
 		}
-		else
-		{
-			x = rand() % gridx;
-			y = rand() % (gridy - (len - 1));
-		}
-		bt.x = x;
-		bt.y = y;
-		if (!IsSpaceForBoat(pCompGrid, &bt))
-		{
-			goto repeat2;
-		}
-		PlaceBoatInGrid(&pCompGrid, &bt);
-		pComputerBoats[i] = bt;
 	}
 
 	//==================================================
@@ -135,14 +139,14 @@ int main()
 		int x = movex - 'a';
 		int y = movey - 'a';
 		printf("\n");
-		if (x < 0 || x >= gridx || y < 0 || y >= gridy)
+		if (x < 0 || x >= GridWidth || y < 0 || y >= GridHeight)
 		{
 			printf("Invalid move.\n");
 			continue;
 		}
 
 		bool guessed;
-		GridData(pCompGrid, x, y, &boatIndex, &guessed);
+		GetGridDataAtXY(pCompGrid, x, y, &boatIndex, &guessed);
 		if (guessed)
 		{
 			printf("You've already guessed that spot.\n");
@@ -151,23 +155,23 @@ int main()
 		if (boatIndex == NO_BOAT)
 		{
 			printf("Miss!\n");
-			SetOrAddGrid(&pCompGrid, x, y, NO_BOAT, true);
+			SetGridDataAtXY(&pCompGrid, x, y, NO_BOAT, true);
 		}
 		else
 		{
 			printf("Hit!\n");
-			SetOrAddGrid(&pCompGrid, x, y, boatIndex, true);
+			SetGridDataAtXY(&pCompGrid, x, y, boatIndex, true);
 
 			// see if the entire boat is hit
-			int nWhichBoatSunkIndex = IsEntireBoatSunk(pCompGrid, pComputerBoats, x, y);
+			int nWhichBoatSunkIndex = IsEntireBoatSunk(pCompGrid, ComputersBoats, x, y);
 			if (nWhichBoatSunkIndex > NO_BOAT)
 			{
 				printf("You sunk his battleship! You sunk boat # %d\n", nWhichBoatSunkIndex);
-				pComputerBoats[nWhichBoatSunkIndex].sunk = true;
+				ComputersBoats[nWhichBoatSunkIndex].sunk = true;
 				bool bAllSunk = true;
 				for (int i = 0; i < 5; i++)
 				{
-					if (!pComputerBoats[i].sunk)
+					if (!ComputersBoats[i].sunk)
 					{
 						bAllSunk = false;
 						break;
@@ -190,7 +194,7 @@ int main()
 
 		int hx, hy;
 		int Direc[4];
-		FindAnyNonSunkHitInGrid(pMyGrid, pMyBoats, &hx, &hy, Direc);
+		FindAnyNonSunkHitInGrid(pMyGrid, MyBoats, &hx, &hy, Direc);
 		if (hx != -1)
 		{
 			// what's the max len of Direc?
@@ -205,11 +209,13 @@ int main()
 				}
 			}
 		retry1:
-			int pickeddir = rand() % 4;
-			if (Direc[pickeddir] != maxlen)
-				goto retry1;
-			guessX = hx + offsetX[pickeddir] * maxlen;
-			guessY = hy + offsetY[pickeddir] * maxlen;
+			{
+				int pickeddir = rand() % 4;
+				if (Direc[pickeddir] != maxlen)
+					goto retry1;
+				guessX = hx + StepOffsetX[pickeddir] * maxlen;
+				guessY = hy + StepOffsetY[pickeddir] * maxlen;
+			}
 		}
 		else
 		{
@@ -224,7 +230,7 @@ int main()
 					continue;
 				}
 
-				boatIndex = GridBoat(pMyGrid, guessX, guessY);
+				boatIndex = GetGridBoatAtXY(pMyGrid, guessX, guessY);
 				if (boatIndex > NO_BOAT)
 				{
 					// found one of my boats
@@ -232,7 +238,7 @@ int main()
 					KnownHitY = guessY;
 					workingDir = -1;
 					guessDir = rand() % 4;
-					printf("Debug: Computer got a hit, and is going to start guessing in the direction: %s\n", szDirections[guessDir]);
+					printf("Debug: Computer got a hit, and is going to start guessing in the direction: %s\n", DirectionString[guessDir]);
 					guessLen = 1;
 				}
 				break;
@@ -246,7 +252,7 @@ int main()
 
 		printf("Computer guesses: %c, %c   (search len = %d)\n", 'A' + guessX, 'A' + guessY, searchLen);
 
-		GridData(pMyGrid, guessX, guessY, &boatIndex, &guessed);
+		GetGridDataAtXY(pMyGrid, guessX, guessY, &boatIndex, &guessed);
 
 		if (guessed)
 		{
@@ -254,7 +260,7 @@ int main()
 			exit(0);
 		}
 
-		SetOrAddGrid(&pMyGrid, guessX, guessY, boatIndex, true);
+		SetGridDataAtXY(&pMyGrid, guessX, guessY, boatIndex, true);
 
 
 		if (boatIndex == NO_BOAT)
@@ -268,7 +274,7 @@ int main()
 			lastComputerMoveWasHit = true;
 		}
 
-		int boatsunk = IsEntireBoatSunk(pMyGrid, pMyBoats, guessX, guessY);
+		int boatsunk = IsEntireBoatSunk(pMyGrid, MyBoats, guessX, guessY);
 		if (boatsunk > NO_BOAT)
 		{
 			KnownHitX = -1;
@@ -279,11 +285,11 @@ int main()
 			guessDirFlipped = false;
 
 			printf("That dick sunk your battleship! Ship = # %d\n", boatsunk);
-			pMyBoats[boatsunk].sunk = true;
+			MyBoats[boatsunk].sunk = true;
 			bool allSunk = true;
 			for (int i = 0; i < 5; i++)
 			{
-				if (!pMyBoats[i].sunk)
+				if (!MyBoats[i].sunk)
 				{
 					allSunk = false;
 					break;
